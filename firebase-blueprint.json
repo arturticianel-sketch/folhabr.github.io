@@ -1,0 +1,95 @@
+{
+  "entities": {
+    "Company": {
+      "title": "Company",
+      "description": "Represents a company using the platform.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "cnpj": { "type": "string" },
+        "adminUid": { "type": "string" },
+        "bankCode": { "type": "string" },
+        "bankAgency": { "type": "string" },
+        "bankAccount": { "type": "string" },
+        "pixKey": { "type": "string" }
+      },
+      "required": ["name", "cnpj", "adminUid"]
+    },
+    "Employee": {
+      "title": "Employee",
+      "description": "Represents an employee of a company.",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string" },
+        "name": { "type": "string" },
+        "cpf": { "type": "string" },
+        "baseSalary": { "type": "number" },
+        "dependents": { "type": "integer" },
+        "bankCode": { "type": "string" },
+        "bankAgency": { "type": "string" },
+        "bankAccount": { "type": "string" }
+      },
+      "required": ["companyId", "name", "cpf", "baseSalary"]
+    },
+    "PayrollBatch": {
+      "title": "PayrollBatch",
+      "description": "A batch of payroll calculations for a specific month.",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string" },
+        "month": { "type": "string" },
+        "status": { "type": "string", "enum": ["draft", "calculated", "paid"] },
+        "totalGross": { "type": "number" },
+        "totalNet": { "type": "number" },
+        "totalTaxes": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["companyId", "month", "status"]
+    },
+    "PayrollEntry": {
+      "title": "PayrollEntry",
+      "description": "An individual payroll entry for an employee in a batch.",
+      "type": "object",
+      "properties": {
+        "batchId": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "grossSalary": { "type": "number" },
+        "inss": { "type": "number" },
+        "irrf": { "type": "number" },
+        "fgts": { "type": "number" },
+        "netSalary": { "type": "number" }
+      },
+      "required": ["batchId", "employeeId", "grossSalary"]
+    },
+    "TaxTable": {
+      "title": "TaxTable",
+      "description": "Configurable tax brackets for INSS and IRRF.",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["INSS", "IRRF"] },
+        "year": { "type": "integer" },
+        "brackets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "min": { "type": "number" },
+              "max": { "type": "number" },
+              "rate": { "type": "number" },
+              "deduction": { "type": "number" }
+            }
+          }
+        }
+      },
+      "required": ["type", "year", "brackets"]
+    }
+  },
+  "firestore": {
+    "/companies/{companyId}": { "schema": "Company", "description": "Company details" },
+    "/companies/{companyId}/employees/{employeeId}": { "schema": "Employee", "description": "Employee details" },
+    "/companies/{companyId}/payroll_batches/{batchId}": { "schema": "PayrollBatch", "description": "Payroll batch details" },
+    "/companies/{companyId}/payroll_batches/{batchId}/entries/{entryId}": { "schema": "PayrollEntry", "description": "Individual payroll entry" },
+    "/tax_tables/{tableId}": { "schema": "TaxTable", "description": "Tax brackets" }
+  }
+}

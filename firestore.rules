@@ -1,0 +1,98 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && (
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+        (request.auth.token.email == "artur.ticianel@aluno.lsb.edu.br" && request.auth.token.email_verified == true)
+      );
+    }
+
+    function isCompanyAdmin(companyId) {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/companies/$(companyId)) &&
+        get(/databases/$(database)/documents/companies/$(companyId)).data.adminUid == request.auth.uid;
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidStringLength(field, minLen, maxLen) {
+      return request.resource.data[field] is string &&
+        request.resource.data[field].size() >= minLen &&
+        request.resource.data[field].size() <= maxLen;
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    function isValidCompany(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.cnpj is string && data.cnpj.size() >= 14 && data.cnpj.size() <= 18;
+    }
+
+    function isValidEmployee(data) {
+      return data.name is string && data.name.size() > 0 &&
+             data.cpf is string && data.cpf.size() == 11 &&
+             data.baseSalary is number && data.baseSalary >= 0;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    // Companies
+    match /companies/{companyId} {
+      allow read: if isAuthenticated() && (resource.data.adminUid == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidCompany(request.resource.data) && request.resource.data.adminUid == request.auth.uid;
+      allow update: if isAuthenticated() && (resource.data.adminUid == request.auth.uid || isAdmin()) && isValidCompany(request.resource.data);
+    }
+
+    // Employees
+    match /companies/{companyId}/employees/{employeeId} {
+      allow read: if isCompanyAdmin(companyId) || isAdmin();
+      allow write: if isCompanyAdmin(companyId) || isAdmin();
+    }
+
+    // Payroll Batches
+    match /companies/{companyId}/payroll_batches/{batchId} {
+      allow read: if isCompanyAdmin(companyId) || isAdmin();
+      allow write: if isCompanyAdmin(companyId) || isAdmin();
+      
+      match /entries/{entryId} {
+        allow read: if isCompanyAdmin(companyId) || isAdmin();
+        allow write: if isCompanyAdmin(companyId) || isAdmin();
+      }
+    }
+
+    // Tax Tables
+    match /tax_tables/{tableId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Users (for roles)
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && request.resource.data.role == 'user';
+      allow update: if isAdmin();
+    }
+  }
+}
